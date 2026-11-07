@@ -44,3 +44,6 @@ next-env.d.ts
 
 # Echte Unterschriften nicht in Git speichern
 /public/unterschrift.png
+
+# Datenbanksicherungen nicht in Git speichern
+/backups/
