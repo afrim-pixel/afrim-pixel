@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "Leistungsart" ADD VALUE 'UMWANDLUNGSANSPRUCH_45A';

@@ -1,0 +1,236 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organisation {
+  id           Int        @id @default(autoincrement())
+  name         String
+  inhaberName String?
+  strasse      String?
+  hausnummer   String?
+  plz          String?
+  ort          String?
+  telefon      String?
+  email        String?
+  ikNummer     String?
+  bankname     String?
+  iban         String?
+  bic          String?
+  steuernummer String?
+  ustIdNr      String?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  benutzer     Benutzer[]
+  klienten     Klient[]
+}
+
+model Benutzer {
+  id                        Int                      @id @default(autoincrement())
+  vorname                   String
+  nachname                  String
+  email                     String                   @unique
+  passwortHash              String
+  aktiv                     Boolean                  @default(true)
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  organisationId            Int
+  rolle                     Rolle                    @default(MITARBEITER)
+  organisation              Organisation             @relation(fields: [organisationId], references: [id])
+  dokumentationen           Dokumentation[]
+  dokumentationsAenderungen DokumentationAenderung[]
+  einsaetze                 Einsatz[]
+  klientZuweisungen         KlientZuweisung[]
+}
+
+model Klient {
+  id                     Int                  @id @default(autoincrement())
+  vorname                String
+  nachname               String
+  geburtsdatum           DateTime?
+  aktiv                  Boolean              @default(true)
+  istTestklient         Boolean              @default(false)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  organisationId         Int
+  hausnummer             String?
+  ort                    String?
+  plz                    String?
+  strasse                String?
+  email                  String?
+  telefon                String?
+  pflegekasse         String?
+  versichertennummer  String?
+  kassenIk            String?
+  leistungsart           Leistungsart?
+  leistungsbeginn        DateTime?
+  pflegegrad             Int?
+  stundensatz            Decimal?
+  abrechnungsbuchungen   Abrechnungsbuchung[]
+  dokumentationen        Dokumentation[]
+  einsaetze              Einsatz[]
+  organisation           Organisation         @relation(fields: [organisationId], references: [id])
+  leistungsarten         KlientLeistungsart[]
+  mitarbeiterZuweisungen KlientZuweisung[]
+  rechnungen             Rechnung[]
+}
+
+model Dokumentation {
+  id          Int                      @id @default(autoincrement())
+  datum       DateTime                 @default(now())
+  text        String
+  createdAt   DateTime                 @default(now())
+  updatedAt   DateTime                 @updatedAt
+  klientId    Int
+  benutzerId  Int?
+  einsatzId   Int?
+  benutzer    Benutzer?                @relation(fields: [benutzerId], references: [id])
+  einsatz     Einsatz?                 @relation(fields: [einsatzId], references: [id])
+  klient      Klient                   @relation(fields: [klientId], references: [id])
+  aenderungen DokumentationAenderung[]
+}
+
+model DokumentationAenderung {
+  id              Int           @id @default(autoincrement())
+  alterText       String
+  createdAt       DateTime      @default(now())
+  dokumentationId Int
+  benutzerId      Int
+  benutzer        Benutzer      @relation(fields: [benutzerId], references: [id])
+  dokumentation   Dokumentation @relation(fields: [dokumentationId], references: [id])
+}
+
+model KlientZuweisung {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  benutzerId Int
+  klientId   Int
+  benutzer   Benutzer @relation(fields: [benutzerId], references: [id])
+  klient     Klient   @relation(fields: [klientId], references: [id])
+
+  @@unique([benutzerId, klientId])
+}
+
+model Einsatz {
+  id                   Int                  @id @default(autoincrement())
+  datum                DateTime
+  startzeit            DateTime
+  endzeit              DateTime
+  status               EinsatzStatus        @default(OFFEN)
+  aenderungGemeldet    Boolean              @default(false)
+  neuesDatum           DateTime?
+  neueStartzeit        DateTime?
+  neueEndzeit          DateTime?
+  aenderungsGrund      String?
+  ausfallGemeldet     Boolean               @default(false)
+  createdAt            DateTime             @default(now())
+  ausfallGemeldetAm       DateTime?
+  ausfallZurueckgezogenAm DateTime?
+  updatedAt            DateTime             @updatedAt
+  benutzerId           Int
+  klientId             Int
+  bestaetigtAm         DateTime?
+  kilometer            Decimal?
+  anfahrtspauschale    Boolean              @default(false)
+  leistungsart         Leistungsart?
+  unterschrift                    String?
+  unterschriebenAm                DateTime?
+  nachunterschriftFreigegebenAm    DateTime?
+  nachunterschriftFreigegebenVonId Int?
+  nachunterschriftFreigabeGrund    String?
+  benutzer                        Benutzer @relation(fields: [benutzerId], references: [id])
+  abrechnungsbuchungen Abrechnungsbuchung[]
+  klient               Klient               @relation(fields: [klientId], references: [id])
+  dokumentationen      Dokumentation[]
+  aenderungen       EinsatzAenderung[]
+  unterschriftProtokolle EinsatzUnterschriftProtokoll[]
+}
+model EinsatzAenderung {
+  id             Int      @id @default(autoincrement())
+  einsatzId      Int
+  neuesDatum     DateTime?
+  neueStartzeit  DateTime?
+  neueEndzeit    DateTime?
+  grund          String?
+  erstelltAm     DateTime @default(now())
+  gesehenAm DateTime?
+  einsatz        Einsatz  @relation(fields: [einsatzId], references: [id], onDelete: Cascade)
+  }
+  model EinsatzUnterschriftProtokoll {
+  id              Int      @id @default(autoincrement())
+  einsatzId       Int
+  benutzerId      Int
+  einsatzStatus    EinsatzStatus
+  nachtraeglich    Boolean @default(false)
+  unterschriebenAm DateTime
+  protokolliertAm DateTime @default(now())
+  bemerkung       String?
+    einsatz         Einsatz  @relation(fields: [einsatzId], references: [id], onDelete: Restrict)
+}
+model Abrechnungsbuchung {
+    rechnungId Int?
+  rechnung   Rechnung? @relation(fields: [rechnungId], references: [id])
+  id           Int      @id @default(autoincrement())
+  datum        DateTime
+  betrag       Decimal
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  klientId     Int
+  einsatzId   Int?   @unique
+  beschreibung String?
+  klient       Klient   @relation(fields: [klientId], references: [id])
+  einsatz      Einsatz? @relation(fields: [einsatzId], references: [id])
+}
+
+model KlientLeistungsart {
+  id           Int          @id @default(autoincrement())
+  leistungsart Leistungsart
+  createdAt    DateTime     @default(now())
+  klientId     Int
+  klient       Klient       @relation(fields: [klientId], references: [id])
+
+  @@unique([klientId, leistungsart])
+}
+
+enum Rolle {
+  ADMIN_INHABER
+  BUERO_ABRECHNUNG
+  EINSATZPLANUNG
+  MITARBEITER
+}
+
+enum Leistungsart {
+  ENTLASTUNGSBETRAG_45B
+  PFLEGESACHLEISTUNG_36
+  VERHINDERUNGSPFLEGE_39
+  SELBSTZAHLER
+  UMWANDLUNGSANSPRUCH_45A
+}
+
+enum EinsatzStatus {
+  OFFEN
+  BESTAETIGT
+  AENDERUNG_GEMELDET
+  UEBERMITTELT
+  GEPRUEFT
+}
+model Rechnung {
+  abrechnungsbuchungen Abrechnungsbuchung[]
+  id              Int      @id @default(autoincrement())
+  rechnungsnummer String   @unique
+  rechnungsdatum  DateTime @default(now())
+  leistungsmonat  DateTime
+  leistungsart   Leistungsart?
+  gesamtbetrag    Decimal
+  erstelltAm      DateTime @default(now())
+  klientId        Int
+  bezahlt        Boolean   @default(false)
+  bezahltAm      DateTime?
+  versendetAm DateTime?
+  versandart String?
+  klient Klient @relation(fields: [klientId], references: [id])
+}

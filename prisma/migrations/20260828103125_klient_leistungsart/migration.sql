@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "Leistungsart" AS ENUM ('ENTLASTUNGSBETRAG_45B', 'PFLEGESACHLEISTUNG_36', 'VERHINDERUNGSPFLEGE_39', 'SELBSTZAHLER');
+
+-- AlterTable
+ALTER TABLE "Klient" ADD COLUMN     "leistungsart" "Leistungsart";
