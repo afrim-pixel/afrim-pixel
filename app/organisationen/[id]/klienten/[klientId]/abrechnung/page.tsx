@@ -63,10 +63,12 @@ notFound();
 
   }
 
+if (monat !== undefined && !/^\d{4}-(0[1-9]|1[0-2])$/.test(monat)) {
+  notFound();
+}
+
 const abrechnungsdatum = monat
-
   ? new Date(`${monat}-01T12:00:00`)
-
   : new Date();
 
 const abrechnungsjahr = abrechnungsdatum.getFullYear();
