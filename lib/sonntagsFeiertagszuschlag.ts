@@ -1,4 +1,3 @@
-
 /**
  * Berechnung von Sonntagen und gesetzlichen Feiertagen
  * in Nordrhein-Westfalen.
@@ -33,14 +32,24 @@ function datumSchluessel(datum: Date): string {
 export function istSonntagOderFeiertag(datum: Date): boolean {
   if (Number.isNaN(datum.getTime())) return false;
 
-  const datumNRW = new Intl.DateTimeFormat("en-CA", {
+  const teile = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Berlin",
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
-  }).format(datum);
+  }).formatToParts(datum);
 
-  const [jahr, monat, tag] = datumNRW.split("-").map(Number);
+  const jahr = Number(teile.find((teil) => teil.type === "year")?.value);
+
+  const monat = Number(teile.find((teil) => teil.type === "month")?.value);
+
+  const tag = Number(teile.find((teil) => teil.type === "day")?.value);
+
+  const datumNRW = [
+    String(jahr).padStart(4, "0"),
+    String(monat).padStart(2, "0"),
+    String(tag).padStart(2, "0"),
+  ].join("-");
 
   const pruefdatum = new Date(Date.UTC(jahr, monat - 1, tag, 12));
 
@@ -63,7 +72,5 @@ export function istSonntagOderFeiertag(datum: Date): boolean {
     new Date(Date.UTC(jahr, 11, 26, 12)),
   ];
 
-  return feiertage.some(
-    (feiertag) => datumSchluessel(feiertag) === datumNRW
-  );
+  return feiertage.some((feiertag) => datumSchluessel(feiertag) === datumNRW);
 }
