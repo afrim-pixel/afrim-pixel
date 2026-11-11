@@ -230,7 +230,7 @@ model Rechnung {
   rechnungsnummer String   @unique
   rechnungsdatum  DateTime @default(now())
   leistungsmonat  DateTime
-  leistungsart   Leistungsart?
+  leistungsart   Leistungsart
   gesamtbetrag    Decimal
   erstelltAm      DateTime @default(now())
   klientId        Int
