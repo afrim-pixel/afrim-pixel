@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 
 import { sessionErfordern } from "../../../../../../lib/auth";
 
-import type { Leistungsart } from "@/app/generated/prisma/client";
+import { Leistungsart } from "@/app/generated/prisma/client";
 
 import Link from "next/link";
 
@@ -29,6 +29,15 @@ export default async function AbrechnungPage({
   const { id, klientId } = await params;
 
   const { monat, leistungsart } = await searchParams;
+
+  if (
+    leistungsart &&
+    !Object.values(Leistungsart).some(
+      (wert) => wert === leistungsart
+    )
+  ) {
+    notFound();
+  }
 
   const organisationId = Number(id);
 
