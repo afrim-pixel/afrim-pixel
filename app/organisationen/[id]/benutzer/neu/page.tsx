@@ -38,6 +38,7 @@ export default async function NeuerBenutzerPage({
       .trim()
       .toLowerCase();
     const passwort = String(formData.get("passwort") ?? "");
+    const beschaeftigtennummer = String(formData.get("beschaeftigtennummer") ?? "").trim();
 
     if (!vorname || !nachname || !email || !passwort) {
       return;
@@ -51,6 +52,7 @@ export default async function NeuerBenutzerPage({
         nachname,
         email,
         passwortHash,
+        beschaeftigtennummer: beschaeftigtennummer || null,
         organisationId,
         rolle: "MITARBEITER",
       },
@@ -105,6 +107,16 @@ export default async function NeuerBenutzerPage({
                 type="email"
                 name="email"
                 required
+                className="w-full rounded-lg border border-slate-300 px-3 py-2"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Beschäftigtennummer (optional)
+              </label>
+              <input
+                name="beschaeftigtennummer"
                 className="w-full rounded-lg border border-slate-300 px-3 py-2"
               />
             </div>
