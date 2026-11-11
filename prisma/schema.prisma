@@ -35,6 +35,7 @@ model Benutzer {
   nachname                  String
   email                     String                   @unique
   passwortHash              String
+  beschaeftigtennummer      String?
   aktiv                     Boolean                  @default(true)
   createdAt                 DateTime                 @default(now())
   updatedAt                 DateTime                 @updatedAt
