@@ -18,15 +18,10 @@ const klienten = await prisma.klient.findMany({
     organisationId,
     aktiv: true,
   },
-  include: {
-    einsaetze: {
-      where: {
-        status: "BESTAETIGT",
-      },
-      orderBy: {
-        datum: "asc",
-      },
-    },
+  select: {
+    id: true,
+    vorname: true,
+    nachname: true,
   },
   orderBy: {
     nachname: "asc",

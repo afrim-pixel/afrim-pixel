@@ -44,7 +44,6 @@ export async function GET(
       status: true,
       nachunterschriftFreigegebenAm: true,
       unterschriebenAm: true,
-      unterschrift: true,
       klient: {
         select: {
           vorname: true,
@@ -71,9 +70,7 @@ export async function GET(
     einsatz.status === "GEPRUEFT" &&
     einsatz.nachunterschriftFreigegebenAm !== null,
     klient: einsatz.klient,
-    hatUnterschrift: Boolean(
-      einsatz.unterschrift || einsatz.unterschriebenAm
-    ),
+    hatUnterschrift: einsatz.unterschriebenAm !== null,
   });
 }
 

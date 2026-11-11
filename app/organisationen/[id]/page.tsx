@@ -12,31 +12,10 @@ export default async function OrganisationPage({
 
   const session = await sessionErfordern();
 
-  const angemeldeterBenutzer = await prisma.benutzer.findFirst({
-  where: {
-    id: Number(session.benutzerId),
-    organisationId,
-  },
-  select: {
-    vorname: true,
-    nachname: true,
-  },
-});
-
   if (session.organisationId !== organisationId) {
     notFound();
-
   }
 
-  const organisation = await prisma.organisation.findUnique({
-    where: {
-      id: organisationId,
-    },
-  });
-
-  if (!organisation) {
-    notFound();
-  }
   async function abmelden() {
   "use server";
 
@@ -44,27 +23,47 @@ export default async function OrganisationPage({
   redirect("/login");
 }
 
-  const benutzer = await prisma.benutzer.count({
-    where: {
-      organisationId: organisationId,
-    },
-  });
+  const [angemeldeterBenutzer, organisation, benutzer, klienten] =
+    await Promise.all([
+      prisma.benutzer.findFirst({
+        where: {
+          id: Number(session.benutzerId),
+          organisationId,
+        },
+        select: {
+          vorname: true,
+          nachname: true,
+        },
+      }),
+      prisma.organisation.findUnique({
+        where: {
+          id: organisationId,
+        },
+      }),
+      prisma.benutzer.count({
+        where: {
+          organisationId: organisationId,
+        },
+      }),
+      prisma.klient.count({
+        where: {
+          organisationId,
+          ...(session.rolle === "MITARBEITER"
+            ? {
+                mitarbeiterZuweisungen: {
+                  some: {
+                    benutzerId: Number(session.benutzerId),
+                  },
+                },
+              }
+            : {}),
+        },
+      }),
+    ]);
 
-const klienten = await prisma.klient.count({
-  where: {
-    organisationId,
-
-    ...(session.rolle === "MITARBEITER"
-      ? {
-          mitarbeiterZuweisungen: {
-            some: {
-              benutzerId: Number(session.benutzerId),
-            },
-          },
-        }
-      : {}),
-  },
-});
+  if (!organisation) {
+    notFound();
+  }
 
   return (
     <main className="min-h-screen bg-slate-100 p-8">

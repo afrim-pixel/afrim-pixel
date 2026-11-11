@@ -54,7 +54,6 @@ select: {
   id: true,
   klientId: true,
     status: true,
-  unterschrift: true,
   unterschriebenAm: true,
   nachunterschriftFreigegebenAm: true,
   klient: {
@@ -78,7 +77,6 @@ select: {
 
     if (
     einsatz.status !== "GEPRUEFT" ||
-    einsatz.unterschrift !== null ||
     einsatz.unterschriebenAm !== null ||
     einsatz.nachunterschriftFreigegebenAm !== null
 ) {

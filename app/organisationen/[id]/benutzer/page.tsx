@@ -59,6 +59,14 @@ export default async function BenutzerPage({
     where: {
       organisationId,
     },
+    select: {
+      id: true,
+      vorname: true,
+      nachname: true,
+      email: true,
+      rolle: true,
+      beschaeftigtennummer: true,
+    },
     orderBy: {
       nachname: "asc",
     },

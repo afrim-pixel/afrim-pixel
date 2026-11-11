@@ -34,11 +34,41 @@ const einsaetze = await prisma.einsatz.findMany({
     klient: {
       organisationId,
     },
+    OR: [
+      { status: "BESTAETIGT", endzeit: { lte: new Date() } },
+      { dokumentationen: { some: {} } },
+    ],
   },
-    include: {
-      klient: true,
-      benutzer: true,
-      dokumentationen: true,
+    select: {
+      id: true,
+      datum: true,
+      startzeit: true,
+      endzeit: true,
+      status: true,
+      klient: {
+        select: {
+          id: true,
+          vorname: true,
+          nachname: true,
+        },
+      },
+      benutzer: {
+        select: {
+          id: true,
+          vorname: true,
+          nachname: true,
+        },
+      },
+      dokumentationen: {
+        select: {
+          id: true,
+          text: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
     },
     orderBy: [
       {

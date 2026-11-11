@@ -1,4 +1,4 @@
-﻿import { prisma } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
 import { sessionErfordern } from "@/lib/auth";
 import { notFound } from "next/navigation";
 
@@ -21,16 +21,46 @@ export default async function ElektronischeAbrechnungPage({
   orderBy: {
     rechnungsdatum: "desc",
   },
-
-include: {
-  klient: true,
-  abrechnungsbuchungen: {
-    include: {
-      einsatz: true,
+  select: {
+    id: true,
+    rechnungsnummer: true,
+    rechnungsdatum: true,
+    leistungsmonat: true,
+    leistungsart: true,
+    gesamtbetrag: true,
+    klientId: true,
+    klient: {
+      select: {
+        id: true,
+        vorname: true,
+        nachname: true,
+        istTestklient: true,
+        versichertennummer: true,
+        kassenIk: true,
+        pflegekasse: true,
+      },
+    },
+    abrechnungsbuchungen: {
+      select: {
+        betrag: true,
+        einsatz: {
+          select: {
+            id: true,
+            datum: true,
+            status: true,
+            leistungsart: true,
+            klientId: true,
+            unterschriebenAm: true,
+            benutzer: {
+              select: {
+                beschaeftigtennummer: true,
+              },
+            },
+          },
+        },
+      },
     },
   },
-},
-
 });
 
   return (
@@ -126,7 +156,6 @@ const einsatzstatusStimmt =
   rechnung.abrechnungsbuchungen.every(
     (buchung) =>
       buchung.einsatz !== null &&
-      !!buchung.einsatz.unterschrift?.trim() &&
       buchung.einsatz.unterschriebenAm !== null
   );
 
@@ -136,7 +165,7 @@ const einsaetzeMitFehlendenAngaben =
     .map((buchung) => {
       const einsatz = buchung.einsatz!;
 
-      const unterschriftFehlt = !einsatz.unterschrift?.trim();
+      const unterschriftFehlt = einsatz.unterschriebenAm === null;
       const datumFehlt = einsatz.unterschriebenAm === null;
 
       return {
@@ -150,6 +179,11 @@ const einsaetzeMitFehlendenAngaben =
     einsatz.unterschriftFehlt || einsatz.datumFehlt
 )
 .sort((a, b) => a.id - b.id);
+
+  const einsaetzeOhneBeschaeftigtennummer = rechnung.abrechnungsbuchungen
+    .filter((buchung) => buchung.einsatz !== null && !buchung.einsatz.benutzer.beschaeftigtennummer?.trim())
+    .map((buchung) => buchung.einsatz!.id)
+    .sort((a, b) => a - b);
 
   return (
     <div
@@ -337,6 +371,12 @@ const einsaetzeMitFehlendenAngaben =
     </span>
   )}
 </p>
+{einsaetzeOhneBeschaeftigtennummer.length > 0 && (
+  <p className="mt-2 text-sm font-semibold text-amber-700">
+    ⚠ Beschäftigtennummer fehlt bei Einsätzen:{" "}
+    {einsaetzeOhneBeschaeftigtennummer.join(", ")}
+  </p>
+)}
       {!rechnung.klient.versichertennummer && (
   <p className="mt-2 font-semibold text-red-600">
     ⚠ Versichertennummer fehlt

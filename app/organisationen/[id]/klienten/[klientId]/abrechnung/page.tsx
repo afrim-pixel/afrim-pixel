@@ -131,38 +131,59 @@ const klient = await prisma.klient.findFirst({
 
   },
 
-include: {
-
-  abrechnungsbuchungen: true,
-
-  leistungsarten: true,
-
-  einsaetze: {
-
-    where: {
-
-      status: "GEPRUEFT",
-
-      ...(leistungsart ? { leistungsart: leistungsart as any } : {}),
-
-    datum: {
-
-  gte: new Date(abrechnungsjahr, abrechnungsmonat, 1),
-
-  lt: new Date(abrechnungsjahr, abrechnungsmonat + 1, 1),
-
-},
-
+select: {
+  id: true,
+  vorname: true,
+  nachname: true,
+  stundensatz: true,
+  leistungsbeginn: true,
+  pflegegrad: true,
+  leistungsarten: {
+    select: {
+      leistungsart: true,
     },
-
-    orderBy: {
-
-      startzeit: "asc",
-
-    },
-
   },
-
+  abrechnungsbuchungen: {
+    where: {
+      datum: {
+        gte: new Date(abrechnungsjahr - 1, 0, 1),
+        lt: new Date(abrechnungsjahr + 1, 0, 1),
+      },
+    },
+    select: {
+      id: true,
+      datum: true,
+      betrag: true,
+      beschreibung: true,
+      einsatzId: true,
+      rechnungId: true,
+    },
+  },
+  einsaetze: {
+    where: {
+      status: "GEPRUEFT",
+      ...(leistungsart ? { leistungsart: leistungsart as any } : {}),
+      datum: {
+        gte: new Date(abrechnungsjahr, abrechnungsmonat, 1),
+        lt: new Date(abrechnungsjahr, abrechnungsmonat + 1, 1),
+      },
+    },
+    select: {
+      id: true,
+      datum: true,
+      startzeit: true,
+      endzeit: true,
+      status: true,
+      leistungsart: true,
+      kilometer: true,
+      anfahrtspauschale: true,
+      sonntagsFeiertagszuschlag: true,
+      unterschriebenAm: true,
+    },
+    orderBy: {
+      startzeit: "asc",
+    },
+  },
 },
 
 });
@@ -178,9 +199,112 @@ const monatsbuchungenAlle = klient.abrechnungsbuchungen.filter((buchung) =>
   buchung.datum >= new Date(abrechnungsjahr, abrechnungsmonat, 1) &&
   buchung.datum < new Date(abrechnungsjahr, abrechnungsmonat + 1, 1)
 );
-const gebuchteEinsaetze = await prisma.einsatz.findMany({
-  where: { id: { in: monatsbuchungenAlle.map((buchung) => buchung.einsatzId).filter((id): id is number => id !== null) }, klientId: klientIdNummer },
-});
+const abrechnungsmonatEnde = new Date(abrechnungsjahr, abrechnungsmonat + 1, 1);
+
+const erstesHalbjahrEnde = new Date(abrechnungsjahr, 6, 1);
+
+const gebuchteEinsatzIds = monatsbuchungenAlle
+  .map((buchung) => buchung.einsatzId)
+  .filter((id): id is number => id !== null);
+
+const [gebuchteEinsaetze, bisherigeEinsaetze, einsaetzeErstesHalbjahr, vorjahresEinsaetze] =
+  await Promise.all([
+    gebuchteEinsatzIds.length === 0
+      ? Promise.resolve([])
+      : prisma.einsatz.findMany({
+          where: {
+            id: { in: gebuchteEinsatzIds },
+            klientId: klientIdNummer,
+          },
+          select: {
+            id: true,
+            leistungsart: true,
+            datum: true,
+            startzeit: true,
+            endzeit: true,
+            status: true,
+          },
+        }),
+    prisma.einsatz.findMany({
+      where: {
+        klientId: klientIdNummer,
+        status: "GEPRUEFT",
+        leistungsart: "ENTLASTUNGSBETRAG_45B",
+        datum: {
+          gte: klient.leistungsbeginn
+            ? new Date(
+                Math.max(
+                  klient.leistungsbeginn.getTime(),
+                  new Date(abrechnungsjahr, 0, 1).getTime()
+                )
+              )
+            : new Date(abrechnungsjahr, 0, 1),
+          lt: abrechnungsmonatEnde,
+        },
+      },
+      select: {
+        id: true,
+        datum: true,
+        startzeit: true,
+        endzeit: true,
+        anfahrtspauschale: true,
+        sonntagsFeiertagszuschlag: true,
+      },
+    }),
+    prisma.einsatz.findMany({
+      where: {
+        klientId: klientIdNummer,
+        status: "GEPRUEFT",
+        leistungsart: "ENTLASTUNGSBETRAG_45B",
+        datum: {
+          gte: klient.leistungsbeginn
+            ? new Date(
+                Math.max(
+                  klient.leistungsbeginn.getTime(),
+                  new Date(abrechnungsjahr, 0, 1).getTime()
+                )
+              )
+            : new Date(abrechnungsjahr, 0, 1),
+          lt:
+            abrechnungsmonatEnde < erstesHalbjahrEnde
+              ? abrechnungsmonatEnde
+              : erstesHalbjahrEnde,
+        },
+      },
+      select: {
+        id: true,
+        datum: true,
+        startzeit: true,
+        endzeit: true,
+        anfahrtspauschale: true,
+        sonntagsFeiertagszuschlag: true,
+      },
+    }),
+    prisma.einsatz.findMany({
+      where: {
+        klientId: klientIdNummer,
+        status: "GEPRUEFT",
+        leistungsart: "ENTLASTUNGSBETRAG_45B",
+        datum: {
+          gte:
+            klient.leistungsbeginn &&
+            klient.leistungsbeginn.getFullYear() === abrechnungsjahr - 1
+              ? klient.leistungsbeginn
+              : new Date(abrechnungsjahr - 1, 0, 1),
+          lt: new Date(abrechnungsjahr, 0, 1),
+        },
+      },
+      select: {
+        id: true,
+        datum: true,
+        startzeit: true,
+        endzeit: true,
+        anfahrtspauschale: true,
+        sonntagsFeiertagszuschlag: true,
+      },
+    }),
+  ]);
+
 const gebuchteEinsaetzeNachId = new Map(gebuchteEinsaetze.map((einsatz) => [einsatz.id, einsatz]));
 const monatsbuchungen = monatsbuchungenAlle.filter((buchung) => {
   if (!leistungsart) return true;
@@ -188,131 +312,17 @@ const monatsbuchungen = monatsbuchungenAlle.filter((buchung) => {
   return gebuchteEinsaetzeNachId.get(buchung.einsatzId)?.leistungsart === leistungsart;
 });
 
-const nochNichtAbgerechneteEinsaetze = klient.einsaetze.filter(
-
-  (einsatz) =>
-
-    (!leistungsart || einsatz.leistungsart === leistungsart) &&
-
-    !klient.abrechnungsbuchungen.some(
-
-      (buchung) => buchung.einsatzId === einsatz.id
-
-    )
-
+const abgerechneteEinsatzIds = new Set(
+  klient.abrechnungsbuchungen
+    .map((buchung) => buchung.einsatzId)
+    .filter((id): id is number => id !== null)
 );
 
-const abrechnungsmonatEnde = new Date(abrechnungsjahr, abrechnungsmonat + 1, 1);
-
-const erstesHalbjahrEnde = new Date(abrechnungsjahr, 6, 1);
-
-const bisherigeEinsaetze = await prisma.einsatz.findMany({
-
-  where: {
-
-    klientId: klientIdNummer,
-
-    status: "GEPRUEFT",
-
-    leistungsart: "ENTLASTUNGSBETRAG_45B",
-
-    datum: {
-
-gte: klient.leistungsbeginn
-
-  ? new Date(
-
-      Math.max(
-
-        klient.leistungsbeginn.getTime(),
-
-        new Date(abrechnungsjahr, 0, 1).getTime()
-
-      )
-
-    )
-
-  : new Date(abrechnungsjahr, 0, 1),
-
-        lt: abrechnungsmonatEnde,
-
-},
-
-  },
-
-});
-
-const einsaetzeErstesHalbjahr = await prisma.einsatz.findMany({
-
-  where: {
-
-    klientId: klientIdNummer,
-
-    status: "GEPRUEFT",
-
-    leistungsart: "ENTLASTUNGSBETRAG_45B",
-
-   datum: {
-
-  gte: klient.leistungsbeginn
-
-    ? new Date(
-
-        Math.max(
-
-          klient.leistungsbeginn.getTime(),
-
-          new Date(abrechnungsjahr, 0, 1).getTime()
-
-        )
-
-      )
-
-    : new Date(abrechnungsjahr, 0, 1),
-
-  lt:
-
-    abrechnungsmonatEnde < erstesHalbjahrEnde
-
-      ? abrechnungsmonatEnde
-
-      : erstesHalbjahrEnde,
-
-},
-
-  },
-
-});
-
-const vorjahresEinsaetze = await prisma.einsatz.findMany({
-
-  where: {
-
-    klientId: klientIdNummer,
-
-    status: "GEPRUEFT",
-
-    leistungsart: "ENTLASTUNGSBETRAG_45B",
-
-datum: {
-
-  gte:
-
-  klient.leistungsbeginn &&
-
-  klient.leistungsbeginn.getFullYear() === abrechnungsjahr - 1
-
-    ? klient.leistungsbeginn
-
-    : new Date(abrechnungsjahr - 1, 0, 1),
-
-  lt: new Date(abrechnungsjahr, 0, 1),
-
-},
-
-  },
-
-});
+const nochNichtAbgerechneteEinsaetze = klient.einsaetze.filter(
+  (einsatz) =>
+    (!leistungsart || einsatz.leistungsart === leistungsart) &&
+    !abgerechneteEinsatzIds.has(einsatz.id)
+);
 
 const minutenErstesHalbjahr = einsaetzeErstesHalbjahr.reduce(
 
@@ -794,16 +804,16 @@ await prisma.$transaction(async (tx) => {
   });
 
   // 2. Abrechnungsbuchungen mit der Rechnung verknüpfen
-  for (const { einsatz, betrag } of betraege) {
-    await tx.abrechnungsbuchung.create({
-      data: {
+  if (betraege.length > 0) {
+    await tx.abrechnungsbuchung.createMany({
+      data: betraege.map(({ einsatz, betrag }) => ({
         datum: einsatz.datum,
         betrag,
         beschreibung: "Abrechnung geprüfter Einsatz",
         klientId: klientIdNummer,
         einsatzId: einsatz.id,
         rechnungId: neueRechnung.id,
-      },
+      })),
     });
   }
 });

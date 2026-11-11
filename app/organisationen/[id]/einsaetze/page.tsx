@@ -22,59 +22,122 @@ export default async function EinsaetzePage({
     notFound();
   }
 
-  const mitarbeiter = await prisma.benutzer.findMany({
-    where: {
-      organisationId,
-      aktiv: true,
-      rolle: "MITARBEITER",
-    },
-    include: {
-      klientZuweisungen: true,
-    },
-    orderBy: {
-      nachname: "asc",
-    },
-  });
-
-  const klienten = await prisma.klient.findMany({
-    where: {
-      organisationId,
-      aktiv: true,
-    },
-    orderBy: {
-      nachname: "asc",
-    },
-  });
-
-  const einsaetze = await prisma.einsatz.findMany({
-  where: {
-    benutzer: {
-      organisationId,
-    },
-    klient: {
-      organisationId,
-    },
-  },
-include: {
-  benutzer: true,
-  klient: true,
-  aenderungen: {
-    orderBy: {
-      erstelltAm: "desc",
-    },
-  },
-},
-orderBy: [
-  {
-    datum: "asc",
-  },
-  {
-    startzeit: "asc",
-  },
-],
-});
-
 const jetzt = new Date();
+const planungsfensterStart = new Date(
+  jetzt.getFullYear(),
+  jetzt.getMonth() - 1,
+  1
+);
+const planungsfensterEnde = new Date(
+  jetzt.getFullYear(),
+  jetzt.getMonth() + 3,
+  1
+);
+
+  const [mitarbeiter, klienten, einsaetze] = await Promise.all([
+    prisma.benutzer.findMany({
+      where: {
+        organisationId,
+        aktiv: true,
+        rolle: "MITARBEITER",
+      },
+      select: {
+        id: true,
+        vorname: true,
+        nachname: true,
+        klientZuweisungen: {
+          select: {
+            klientId: true,
+            benutzerId: true,
+          },
+        },
+      },
+      orderBy: {
+        nachname: "asc",
+      },
+    }),
+    prisma.klient.findMany({
+      where: {
+        organisationId,
+        aktiv: true,
+      },
+      select: {
+        id: true,
+        vorname: true,
+        nachname: true,
+      },
+      orderBy: {
+        nachname: "asc",
+      },
+    }),
+    prisma.einsatz.findMany({
+      where: {
+        benutzer: {
+          organisationId,
+        },
+        klient: {
+          organisationId,
+        },
+        datum: {
+          gte: planungsfensterStart,
+          lt: planungsfensterEnde,
+        },
+      },
+      select: {
+        id: true,
+        datum: true,
+        startzeit: true,
+        endzeit: true,
+        status: true,
+        aenderungGemeldet: true,
+        ausfallGemeldet: true,
+        leistungsart: true,
+        kilometer: true,
+        anfahrtspauschale: true,
+        bestaetigtAm: true,
+        neuesDatum: true,
+        neueStartzeit: true,
+        neueEndzeit: true,
+        aenderungsGrund: true,
+        benutzer: {
+          select: {
+            id: true,
+            vorname: true,
+            nachname: true,
+          },
+        },
+        klient: {
+          select: {
+            id: true,
+            vorname: true,
+            nachname: true,
+          },
+        },
+        aenderungen: {
+          orderBy: {
+            erstelltAm: "desc",
+          },
+          select: {
+            id: true,
+            neuesDatum: true,
+            neueStartzeit: true,
+            neueEndzeit: true,
+            grund: true,
+            gesehenAm: true,
+            erstelltAm: true,
+          },
+        },
+      },
+      orderBy: [
+        {
+          datum: "asc",
+        },
+        {
+          startzeit: "asc",
+        },
+      ],
+    }),
+  ]);
 
 const kommendeEinsaetze = einsaetze.filter(
   (einsatz) => einsatz.endzeit >= jetzt

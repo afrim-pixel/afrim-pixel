@@ -46,22 +46,6 @@ const ausgewaehlterMonat =
 
   const benutzerId = Number(session.benutzerId);
 
-    const einsaetze = await prisma.einsatz.findMany({  where: {
-      benutzerId,
-      benutzer: {
-        organisationId,
-      },
-      klient: {
-        organisationId,
-      },
-    },
-    include: {
-      klient: true,
-    },
-    orderBy: {
-      startzeit: "asc",
-    },
-  });
 const jetzt = heute;
 
 const kalenderMonat = monatsansicht ? ausgewaehlterMonat : jetzt;
@@ -116,6 +100,60 @@ const endeVormonat = new Date(
   1
 );
 
+const monatsEnde = new Date(
+  kalenderMonat.getFullYear(),
+  kalenderMonat.getMonth() + 2,
+  1
+);
+
+const einsaetze = await prisma.einsatz.findMany({
+  where: {
+    benutzerId,
+    benutzer: {
+      organisationId,
+    },
+    klient: {
+      organisationId,
+    },
+    datum: {
+      gte: beginnVormonat,
+      lt: monatsEnde,
+    },
+  },
+  select: {
+    id: true,
+    datum: true,
+    startzeit: true,
+    endzeit: true,
+    status: true,
+    ausfallGemeldet: true,
+    unterschriebenAm: true,
+    nachunterschriftFreigegebenAm: true,
+    nachunterschriftFreigegebenVonId: true,
+    nachunterschriftFreigabeGrund: true,
+    aenderungGemeldet: true,
+    bestaetigtAm: true,
+    kilometer: true,
+    anfahrtspauschale: true,
+    sonntagsFeiertagszuschlag: true,
+    leistungsart: true,
+    klient: {
+      select: {
+        id: true,
+        vorname: true,
+        nachname: true,
+        strasse: true,
+        hausnummer: true,
+        plz: true,
+        ort: true,
+      },
+    },
+  },
+  orderBy: {
+    startzeit: "asc",
+  },
+});
+
 const vormonatEinsaetze = einsaetze.filter(
   (einsatz) =>
     einsatz.datum >= beginnVormonat &&
@@ -145,7 +183,6 @@ const vergangeneEinsaetze = einsaetze.filter(
 const einsaetzeOhneUnterschrift = einsaetze.filter(
   (einsatz) =>
     einsatz.endzeit < jetzt &&
-    !einsatz.unterschrift &&
     !einsatz.unterschriebenAm &&
     !einsatz.ausfallGemeldet
 );
@@ -179,12 +216,17 @@ async function einsatzBestaetigen(formData: FormData) {
   lte: new Date(),
 },
     },
+    select: {
+      id: true,
+      datum: true,
+      unterschriebenAm: true,
+    },
   });
 
   if (!einsatz) {
     redirect(`/organisationen/${organisationId}/einsaetze/meine`);
   }
-if (!einsatz.unterschrift) {
+if (!einsatz.unterschriebenAm) {
   redirect(
     `/organisationen/${organisationId}/einsaetze/meine?fehler=unterschrift`
   );
@@ -639,7 +681,7 @@ if (offeneEinsaetzeVormonat > 0) {
     />
 
 <EinsatzBestaetigenButton
-  hatUnterschrift={Boolean(einsatz.unterschrift)}
+  hatUnterschrift={Boolean(einsatz.unterschriebenAm)}
 />
   </form>
 )}
@@ -653,7 +695,7 @@ if (offeneEinsaetzeVormonat > 0) {
   </a>
 )}
 {(einsatz.status === "OFFEN" || einsatz.status === "BESTAETIGT") && (
-  einsatz.unterschrift ? (
+  einsatz.unterschriebenAm ? (
     <span className="mt-2 inline-block rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white">
       ✓ Unterschrift vorhanden
     </span>
@@ -717,7 +759,6 @@ if (offeneEinsaetzeVormonat > 0) {
       </p>
       {einsatz.id === 15 &&
   einsatz.status === "GEPRUEFT" &&
-  !einsatz.unterschrift &&
   !einsatz.unterschriebenAm &&
   einsatz.nachunterschriftFreigegebenAm !== null &&
   einsatz.nachunterschriftFreigegebenVonId !== null &&
@@ -786,7 +827,7 @@ if (offeneEinsaetzeVormonat > 0) {
     />
 
     <EinsatzBestaetigenButton
-      hatUnterschrift={Boolean(einsatz.unterschrift)}
+      hatUnterschrift={Boolean(einsatz.unterschriebenAm)}
     />
   </form>
 )}
@@ -828,7 +869,7 @@ if (offeneEinsaetzeVormonat > 0) {
           <AusfallMeldenButton />
         </form>
 
-        {einsatz.unterschrift ? (
+        {einsatz.unterschriebenAm ? (
           <span className="mt-2 ml-2 inline-block rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white">
             ✓ Unterschrift vorhanden
           </span>
@@ -847,7 +888,6 @@ if (offeneEinsaetzeVormonat > 0) {
 
 {einsatz.id === 15 &&
   einsatz.status === "GEPRUEFT" &&
-  !einsatz.unterschrift &&
   !einsatz.unterschriebenAm &&
   einsatz.nachunterschriftFreigegebenAm !== null &&
   einsatz.nachunterschriftFreigegebenVonId !== null &&

@@ -46,6 +46,8 @@ model Benutzer {
   dokumentationsAenderungen DokumentationAenderung[]
   einsaetze                 Einsatz[]
   klientZuweisungen         KlientZuweisung[]
+
+  @@index([organisationId])
 }
 
 model Klient {
@@ -82,6 +84,9 @@ model Klient {
   leistungsarten         KlientLeistungsart[]
   mitarbeiterZuweisungen KlientZuweisung[]
   rechnungen             Rechnung[]
+
+  @@index([organisationId])
+  @@index([kassenIk])
 }
 
 model Dokumentation {
@@ -154,6 +159,10 @@ model Einsatz {
   dokumentationen      Dokumentation[]
   aenderungen       EinsatzAenderung[]
   unterschriftProtokolle EinsatzUnterschriftProtokoll[]
+
+  @@index([benutzerId, datum])
+  @@index([klientId, datum])
+  @@index([status, datum])
 }
 
 model EinsatzAenderung {
@@ -191,6 +200,9 @@ model Abrechnungsbuchung {
   beschreibung String?
   klient       Klient   @relation(fields: [klientId], references: [id])
   einsatz      Einsatz? @relation(fields: [einsatzId], references: [id])
+
+  @@index([klientId, datum])
+  @@index([rechnungId])
 }
 
 model KlientLeistungsart {
@@ -243,4 +255,6 @@ model Rechnung {
   klient Klient @relation(fields: [klientId], references: [id])
 
   @@unique([klientId, leistungsmonat, leistungsart])
+  @@index([klientId, leistungsmonat])
+  @@index([versendetAm])
 }
