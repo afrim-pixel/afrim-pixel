@@ -6,7 +6,7 @@ import { notFound } from "next/navigation";
 
 import { sessionErfordern } from "../../../../../../lib/auth";
 
-import { Leistungsart } from "@/app/generated/prisma/client";
+import { Leistungsart, Prisma } from "@/app/generated/prisma/client";
 
 import Link from "next/link";
 
@@ -776,6 +776,7 @@ return {
 
   ).padStart(2, "0")}-${klientIdNummer}-${leistungsart}`;
 
+  try {
 await prisma.$transaction(async (tx) => {
   // 1. Rechnung zuerst erstellen
   const neueRechnung = await tx.rechnung.create({
@@ -804,6 +805,21 @@ await prisma.$transaction(async (tx) => {
     });
   }
 });
+
+} catch (fehler) {
+  if (
+    fehler instanceof Prisma.PrismaClientKnownRequestError &&
+    fehler.code === "P2002" &&
+    Array.isArray(fehler.meta?.target) &&
+    ["klientId", "leistungsmonat", "leistungsart"].every(
+      (feld) => (fehler.meta?.target as string[]).includes(feld)
+    )
+  ) {
+    return;
+  }
+
+  throw fehler;
+}
 
   revalidatePath(
 
