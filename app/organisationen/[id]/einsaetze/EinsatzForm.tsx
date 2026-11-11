@@ -201,6 +201,14 @@ export default function EinsatzForm({
   Anfahrtspauschale berechnen
 </label>
 
+<label className="flex items-center gap-2 text-sm text-slate-700">
+  <input
+    type="checkbox"
+    name="sonntagsFeiertagszuschlag"
+  />
+  Sonntags- und Feiertagszuschlag (9,90 € pro Einsatz)
+</label>
+
         <button
           type="submit"
           className="rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"

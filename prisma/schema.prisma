@@ -64,6 +64,10 @@ model Klient {
   email                  String?
   telefon                String?
   pflegekasse         String?
+  pflegekasseStrasse     String?
+  pflegekasseHausnummer  String?
+  pflegekassePlz         String?
+  pflegekasseOrt         String?
   versichertennummer  String?
   kassenIk            String?
   leistungsart           Leistungsart?
@@ -136,6 +140,7 @@ model Einsatz {
   bestaetigtAm         DateTime?
   kilometer            Decimal?
   anfahrtspauschale    Boolean              @default(false)
+  sonntagsFeiertagszuschlag Boolean @default(false)
   leistungsart         Leistungsart?
   unterschrift                    String?
   unterschriebenAm                DateTime?
@@ -149,6 +154,7 @@ model Einsatz {
   aenderungen       EinsatzAenderung[]
   unterschriftProtokolle EinsatzUnterschriftProtokoll[]
 }
+
 model EinsatzAenderung {
   id             Int      @id @default(autoincrement())
   einsatzId      Int
@@ -232,5 +238,8 @@ model Rechnung {
   bezahltAm      DateTime?
   versendetAm DateTime?
   versandart String?
+  rechnungsempfaenger String @default("KLIENT")
   klient Klient @relation(fields: [klientId], references: [id])
+
+  @@unique([klientId, leistungsmonat, leistungsart])
 }

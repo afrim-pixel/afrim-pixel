@@ -252,10 +252,10 @@ async function ausfallMelden(formData: FormData) {
     where: {
       id: einsatz.id,
     },
-    data: {
-      ausfallGemeldet: true,
-      ausfallGemeldetAm: new Date(),
-    },
+data: {
+  ausfallGemeldet: true,
+  ausfallGemeldetAm: new Date(),
+},
   });
 
   redirect(`/organisationen/${organisationId}/einsaetze/meine`);
@@ -284,7 +284,10 @@ async function ausfallZurueckziehen(formData: FormData) {
       klient: {
         organisationId,
       },
-      ausfallGemeldet: true,
+           ausfallGemeldet: true,
+      status: {
+        in: ["OFFEN", "BESTAETIGT"],
+      },
     },
   });
 
@@ -611,11 +614,7 @@ if (offeneEinsaetzeVormonat > 0) {
   </p>
 )}
 
-{einsatz.anfahrtspauschale && (
-  <p className="mt-1 text-sm text-slate-600">
-    Anfahrtspauschale: 5,50 €
-  </p>
-)}
+
                   <p className="mt-2 text-sm font-semibold text-slate-700">
                     Status: {einsatz.status}
                   </p>
@@ -629,7 +628,7 @@ if (offeneEinsaetzeVormonat > 0) {
       minute: "2-digit",
     })}
   </p>
-)} 
+)}
 
 {einsatz.status === "OFFEN" && einsatz.startzeit <= jetzt && (
   <form action={einsatzBestaetigen} className="mt-4">
@@ -791,7 +790,9 @@ if (offeneEinsaetzeVormonat > 0) {
     />
   </form>
 )}
-{einsatz.ausfallGemeldet ? (
+{einsatz.ausfallGemeldet &&
+(einsatz.status === "OFFEN" || einsatz.status === "BESTAETIGT") ? (
+
   <form action={ausfallZurueckziehen} className="mt-2">
     <input
       type="hidden"

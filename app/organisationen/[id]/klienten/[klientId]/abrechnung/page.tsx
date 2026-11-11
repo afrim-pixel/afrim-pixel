@@ -1,5 +1,7 @@
 import { prisma } from "../../../../../../lib/prisma";
 
+import { istSonntagOderFeiertag } from "../../../../../../lib/sonntagsFeiertagszuschlag";
+
 import { notFound } from "next/navigation";
 
 import { sessionErfordern } from "../../../../../../lib/auth";
@@ -333,9 +335,17 @@ const anfahrtspauschalenErstesHalbjahr = einsaetzeErstesHalbjahr.filter(
 
 const anfahrtskostenErstesHalbjahr = anfahrtspauschalenErstesHalbjahr * 5.5;
 
-const gesamtbetragErstesHalbjahr =
+const sonntagsFeiertagskostenErstesHalbjahr =
+  einsaetzeErstesHalbjahr.filter(
+    (einsatz) =>
+      einsatz.sonntagsFeiertagszuschlag &&
+      istSonntagOderFeiertag(einsatz.datum)
+  ).length * 9.9;
 
-  arbeitskostenErstesHalbjahr + anfahrtskostenErstesHalbjahr;
+const gesamtbetragErstesHalbjahr =
+  arbeitskostenErstesHalbjahr +
+  anfahrtskostenErstesHalbjahr +
+  sonntagsFeiertagskostenErstesHalbjahr;
 
 const vorjahresMinuten = vorjahresEinsaetze.reduce((summe, einsatz) => {
 
@@ -363,7 +373,17 @@ const vorjahresAnfahrtspauschalen = vorjahresEinsaetze.filter(
 
 const vorjahresAnfahrtskosten = vorjahresAnfahrtspauschalen * 5.5;
 
-const vorjahresGesamtbetrag = vorjahresArbeitskosten + vorjahresAnfahrtskosten;
+const vorjahresSonntagsFeiertagskosten =
+  vorjahresEinsaetze.filter(
+    (einsatz) =>
+      einsatz.sonntagsFeiertagszuschlag &&
+      istSonntagOderFeiertag(einsatz.datum)
+  ).length * 9.9;
+
+const vorjahresGesamtbetrag =
+  vorjahresArbeitskosten +
+  vorjahresAnfahrtskosten +
+  vorjahresSonntagsFeiertagskosten;
 
 const bisherigeMinuten = bisherigeEinsaetze.reduce((summe, einsatz) => {
 
@@ -391,7 +411,17 @@ const bisherigeAnfahrtspauschalen = bisherigeEinsaetze.filter(
 
 const bisherigeAnfahrtskosten = bisherigeAnfahrtspauschalen * 5.5;
 
-const bisherigerGesamtbetrag = bisherigeArbeitskosten + bisherigeAnfahrtskosten;
+const bisherigeSonntagsFeiertagskosten =
+  bisherigeEinsaetze.filter(
+    (einsatz) =>
+      einsatz.sonntagsFeiertagszuschlag &&
+      istSonntagOderFeiertag(einsatz.datum)
+  ).length * 9.9;
+
+const bisherigerGesamtbetrag =
+  bisherigeArbeitskosten +
+  bisherigeAnfahrtskosten +
+  bisherigeSonntagsFeiertagskosten;
 
 const gesamtMinuten = nochNichtAbgerechneteEinsaetze.reduce((summe, einsatz) => {
 
@@ -419,7 +449,18 @@ const arbeitskosten =
 
 const anfahrtskosten = anfahrtspauschalen * 5.5;
 
-const gesamtbetrag = arbeitskosten + anfahrtskosten;
+const anzahlSonntagsFeiertagszuschlaege =
+  nochNichtAbgerechneteEinsaetze.filter(
+    (einsatz) =>
+      einsatz.sonntagsFeiertagszuschlag &&
+      istSonntagOderFeiertag(einsatz.datum)
+  ).length;
+
+const sonntagsFeiertagskosten =
+  anzahlSonntagsFeiertagszuschlaege * 9.9;
+
+const gesamtbetrag =
+  arbeitskosten + anfahrtskosten + sonntagsFeiertagskosten;
 
 const abrechnungsmonatStart = new Date(abrechnungsjahr, abrechnungsmonat, 1);
 
@@ -539,9 +580,74 @@ const bestehendeRechnung = leistungsart ? await prisma.rechnung.findFirst({
 
 }) : null;
 
-async function abrechnungErstellen() {
-
+async function rechnungsempfaengerSpeichern(formData: FormData) {
   "use server";
+
+  const aktuelleSession = await sessionErfordern();
+
+  if (
+    aktuelleSession.rolle !== "ADMIN_INHABER" &&
+    aktuelleSession.rolle !== "BUERO_ABRECHNUNG"
+  ) {
+    return;
+  }
+
+  if (aktuelleSession.organisationId !== organisationId) {
+    return;
+  }
+const empfaenger = formData.get("rechnungsempfaenger");
+
+if (empfaenger !== "KLIENT" && empfaenger !== "PFLEGEKASSE") {
+  return;
+}
+
+const rechnungId = Number(formData.get("rechnungId"));
+
+if (!Number.isSafeInteger(rechnungId) || rechnungId <= 0) {
+  return;
+}
+
+const erlaubteRechnung = await prisma.rechnung.findFirst({
+  where: {
+    id: rechnungId,
+    klientId: klientIdNummer,
+    klient: {
+      organisationId: aktuelleSession.organisationId,
+    },
+  },
+});
+
+if (!erlaubteRechnung) {
+  return;
+}
+
+await prisma.rechnung.updateMany({
+  where: {
+    id: rechnungId,
+    klientId: klientIdNummer,
+    klient: {
+      organisationId: aktuelleSession.organisationId,
+    },
+  },
+  data: {
+    rechnungsempfaenger: empfaenger,
+  },
+});
+
+revalidatePath(
+  `/organisationen/${organisationId}/klienten/${klientIdNummer}/abrechnung`
+);
+}
+
+async function abrechnungErstellen(formData: FormData) {
+  "use server";
+
+  const empfaengerAuswahl = formData.get("rechnungsempfaenger");
+
+const rechnungsempfaenger =
+  empfaengerAuswahl === "PFLEGEKASSE"
+    ? "PFLEGEKASSE"
+    : "KLIENT";
 
   const aktuelleSession = await sessionErfordern();
 
@@ -635,11 +741,21 @@ async function abrechnungErstellen() {
 
       (einsatz.endzeit.getTime() - einsatz.startzeit.getTime()) / 60000;
 
-    const arbeitsbetrag = (minuten / 60) * Number(abrechnungsKlient.stundensatz ?? 0);
+const arbeitsbetrag =
+  (minuten / 60) * Number(abrechnungsKlient.stundensatz ?? 0);
 
-    const anfahrt = einsatz.anfahrtspauschale ? 5.5 : 0;
+const anfahrt = einsatz.anfahrtspauschale ? 5.5 : 0;
 
-    return { einsatz, betrag: arbeitsbetrag + anfahrt };
+const sonntagsFeiertagszuschlag =
+  einsatz.sonntagsFeiertagszuschlag &&
+  istSonntagOderFeiertag(einsatz.datum)
+    ? 9.9
+    : 0;
+
+return {
+  einsatz,
+  betrag: arbeitsbetrag + anfahrt + sonntagsFeiertagszuschlag,
+};
 
   });
 
@@ -661,6 +777,7 @@ await prisma.$transaction(async (tx) => {
       leistungsart: leistungsart as Leistungsart,
       gesamtbetrag: rechnungsGesamtbetrag,
       klientId: klientIdNummer,
+      rechnungsempfaenger,
     },
   });
 
@@ -966,9 +1083,12 @@ href={`/organisationen/${organisationId}/klienten/${klientIdNummer}/abrechnung?m
 </p>
 
 <p className="mt-1 text-sm text-slate-600">
-
   Anfahrtskosten: {anfahrtskosten.toFixed(2).replace(".", ",")} €
+</p>
 
+<p className="mt-1 text-sm text-slate-600">
+  Sonntags- und Feiertagszuschlag:{" "}
+  {sonntagsFeiertagskosten.toFixed(2).replace(".", ",")} €
 </p>
 
 <p className="mt-2 text-sm font-semibold text-slate-900">
@@ -1008,6 +1128,23 @@ href={`/organisationen/${organisationId}/klienten/${klientIdNummer}/abrechnung?m
 
   <form action={abrechnungErstellen} className="mt-4">
 
+  <label
+  htmlFor="rechnungsempfaenger"
+  className="mb-2 block text-sm font-semibold text-slate-700"
+>
+  Rechnungsempfänger auswählen
+</label>
+
+<select
+  id="rechnungsempfaenger"
+  name="rechnungsempfaenger"
+  defaultValue="KLIENT"
+  className="mb-4 block rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900"
+>
+  <option value="KLIENT">Klient</option>
+  <option value="PFLEGEKASSE">Pflegekasse / Versicherung</option>
+</select>
+
     <button
 
       type="submit"
@@ -1033,10 +1170,50 @@ href={`/organisationen/${organisationId}/klienten/${klientIdNummer}/abrechnung?m
   </p>
 
   <p className="mt-2">
-
     Rechnungsnummer: <strong>{bestehendeRechnung.rechnungsnummer}</strong>
-
   </p>
+
+<p className="mt-2">
+  Rechnungsempfänger:{" "}
+  <strong>
+    {bestehendeRechnung.rechnungsempfaenger === "PFLEGEKASSE"
+      ? "Pflegekasse / Versicherung"
+      : "Klient"}
+  </strong>
+</p>
+<form action={rechnungsempfaengerSpeichern} className="mt-4">
+
+<label
+  htmlFor="empfaenger-bestehende-rechnung"
+  className="mt-4 block font-semibold"
+>
+  Rechnungsempfänger auswählen
+</label>
+
+<select
+  id="empfaenger-bestehende-rechnung"
+  name="rechnungsempfaenger"
+  defaultValue={bestehendeRechnung.rechnungsempfaenger}
+  className="mt-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-slate-900"
+>
+  <option value="KLIENT">Klient</option>
+  <option value="PFLEGEKASSE">
+    Pflegekasse / Versicherung
+  </option>
+</select>
+<input
+  type="hidden"
+  name="rechnungId"
+  value={bestehendeRechnung.id}
+/>
+
+<button
+  type="submit"
+  className="ml-3 rounded-lg bg-blue-600 px-4 py-2 font-semibold text-white hover:bg-blue-700"
+>
+  Rechnungsempfänger speichern
+</button>
+</form>
 
   <p>
 
@@ -1128,7 +1305,14 @@ href={`/organisationen/${organisationId}/klienten/${klientIdNummer}/abrechnung?m
 
           const anfahrt = einsatz.anfahrtspauschale ? 5.5 : 0;
 
-          const einsatzbetrag = arbeitsbetrag + anfahrt;
+          const sonntagsFeiertagszuschlag =
+          einsatz.sonntagsFeiertagszuschlag &&
+            istSonntagOderFeiertag(einsatz.datum)
+              ? 9.9
+              : 0;
+
+          const einsatzbetrag =
+          arbeitsbetrag + anfahrt + sonntagsFeiertagszuschlag;
 
           return (
 

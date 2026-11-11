@@ -137,9 +137,14 @@ if (actionEinsatz.datum < actionBeginnVormonat) {
     return;
   }
 
-await prisma.einsatz.update({
+
+const ergebnis = await prisma.einsatz.updateMany({
   where: {
     id: actionEinsatz.id,
+    benutzerId: Number(actionSession.benutzerId),
+    status: {
+      in: ["OFFEN", "BESTAETIGT", "AENDERUNG_GEMELDET"],
+    },
   },
   data: {
     datum: neuesDatumWert,
@@ -155,7 +160,11 @@ await prisma.einsatz.update({
     neueEndzeit: null,
     aenderungsGrund: null,
   },
-})
+});
+
+if (ergebnis.count === 0) {
+  notFound();
+}
   await prisma.einsatzAenderung.create({
     data: {
       einsatzId: actionEinsatz.id,
@@ -207,7 +216,7 @@ await prisma.einsatz.update({
           <p className="mt-2 font-semibold text-slate-700">
             Status: {einsatz.status}
           </p>
-   
+
                 </div>
 
         <form
@@ -280,4 +289,4 @@ await prisma.einsatz.update({
       </div>
     </main>
   );
-}       
+}

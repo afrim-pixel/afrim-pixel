@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sessionErfordern } from "@/lib/auth";
 import { readFile } from "fs/promises";
 import path from "path";
+import { istSonntagOderFeiertag } from "../../../../../../../lib/sonntagsFeiertagszuschlag";
 
 export async function GET(
   request: Request,
@@ -57,6 +58,37 @@ const rechnung = await prisma.rechnung.findFirst({
 if (!rechnung) {
   return new Response("Rechnung nicht gefunden", { status: 404 });
 }
+
+const istPflegekasse =
+  rechnung.rechnungsempfaenger === "PFLEGEKASSE";
+
+if (
+  istPflegekasse &&
+  (
+    !klient.pflegekasse?.trim() ||
+    !klient.pflegekassePlz?.trim() ||
+    !klient.pflegekasseOrt?.trim() ||
+    (Boolean(klient.pflegekasseStrasse?.trim()) !==
+      Boolean(klient.pflegekasseHausnummer?.trim()))
+  )
+) {
+  return new Response(
+    "Bitte die Postanschrift der Pflegekasse prüfen: Name, PLZ und Ort sind erforderlich. Bei einer Straßenanschrift bitte Straße und Hausnummer vollständig angeben.",
+    { status: 400 }
+  );
+}
+
+const empfaengerName = istPflegekasse
+  ? klient.pflegekasse?.trim() || "Pflegekasse nicht hinterlegt"
+  : `${klient.vorname} ${klient.nachname}`;
+
+  const empfaengerStrasse = istPflegekasse
+  ? `${klient.pflegekasseStrasse ?? ""} ${klient.pflegekasseHausnummer ?? ""}`.trim()
+  : `${klient.strasse ?? ""} ${klient.hausnummer ?? ""}`.trim();
+
+  const empfaengerOrt = istPflegekasse
+  ? `${klient.pflegekassePlz ?? ""} ${klient.pflegekasseOrt ?? ""}`.trim()
+  : `${klient.plz ?? ""} ${klient.ort ?? ""}`.trim();
 
 const buchungen = await prisma.abrechnungsbuchung.findMany({
   where: {
@@ -121,7 +153,7 @@ page.drawLine({
   color: rgb(0, 0, 0),
 });
 const firmenInfoRechts = [
-  organisation.name,
+  "Alltagshelfer Bonn Rhein Sieg",
   organisation.strasse && organisation.hausnummer
     ? `${organisation.strasse} ${organisation.hausnummer}`
     : organisation.strasse,
@@ -140,11 +172,14 @@ const firmenInfoRechts = [
 let firmenInfoY = 720;
 
 for (const zeile of firmenInfoRechts) {
+  const istFirmenname =
+    zeile === "Alltagshelfer Bonn Rhein Sieg";
+
   page.drawText(zeile, {
     x: 385,
     y: firmenInfoY,
     size: 9,
-    font,
+    font: istFirmenname ? boldFont : font,
     color: rgb(0, 0, 0),
   });
 
@@ -152,7 +187,7 @@ for (const zeile of firmenInfoRechts) {
 }
 
 
-const absenderZeile = `${organisation.name} · ${organisation.strasse}${organisation.hausnummer ? ` ${organisation.hausnummer}` : ""} · ${organisation.plz ?? ""} ${organisation.ort ?? ""}`;
+const absenderZeile = `Alltagshelfer Bonn Rhein Sieg · ${organisation.strasse}${organisation.hausnummer ? ` ${organisation.hausnummer}` : ""} · ${organisation.plz ?? ""} ${organisation.ort ?? ""}`;
 
 page.drawText(absenderZeile, {
   x: 50,
@@ -163,13 +198,9 @@ page.drawText(absenderZeile, {
 });
 
 const kundenAdresse = [
-  `${klient.vorname} ${klient.nachname}`,
-  klient.strasse && klient.hausnummer
-    ? `${klient.strasse} ${klient.hausnummer}`
-    : klient.strasse,
-  klient.plz && klient.ort
-    ? `${klient.plz} ${klient.ort}`
-    : klient.ort,
+  empfaengerName,
+  empfaengerStrasse,
+  empfaengerOrt,
 ].filter((zeile): zeile is string => Boolean(zeile));
 
 let kundenY = 670;
@@ -188,7 +219,7 @@ for (const zeile of kundenAdresse) {
 page.drawText(
   `Bonn, ${rechnung.rechnungsdatum.toLocaleDateString("de-DE")}`,
   {
-    x: 370,
+    x: 385,
     y: 585,
     size: 10,
     font: boldFont,
@@ -319,6 +350,17 @@ const anzahlAnfahrten = einsaetze.filter(
 const anfahrtSatz = 5.5;
 const anfahrtGesamt = anzahlAnfahrten * anfahrtSatz;
 
+const anzahlSonntagsFeiertagszuschlaege = einsaetze.filter(
+  (einsatz) =>
+    einsatz.sonntagsFeiertagszuschlag &&
+    istSonntagOderFeiertag(einsatz.datum)
+).length;
+
+const sonntagsFeiertagsSatz = 9.9;
+
+const sonntagsFeiertagsGesamt =
+  anzahlSonntagsFeiertagszuschlaege * sonntagsFeiertagsSatz;
+
 const gesamtbetrag = Number(rechnung.gesamtbetrag);
 
 // Hilfsfunktion für Tabellenlinien
@@ -447,8 +489,50 @@ page.drawText(
 positionY -= 18;
 linie(positionY + 7);
 
+// Sonntags- und Feiertagszuschlag
+if (anzahlSonntagsFeiertagszuschlaege > 0) {
+  positionY -= 18;
+
+  page.drawText("Sonntags- und Feiertagszuschlag", {
+    x: 115,
+    y: positionY,
+    size: 9,
+    font,
+  });
+
+  page.drawText(
+    `${anzahlSonntagsFeiertagszuschlaege} x`,
+    {
+      x: 340,
+      y: positionY,
+      size: 10,
+      font,
+    }
+  );
+
+  page.drawText("9,90 EUR", {
+    x: 380,
+    y: positionY,
+    size: 10,
+    font,
+  });
+
+  page.drawText(
+    `${sonntagsFeiertagsGesamt.toFixed(2).replace(".", ",")} EUR`,
+    {
+      x: 475,
+      y: positionY,
+      size: 10,
+      font,
+    }
+  );
+
+  positionY -= 18;
+  linie(positionY + 7);
+}
+
 // 3. Ersatz sonstiger Aufwendungen
-positionY -= 8;
+positionY -= 18;
 
 page.drawText("3. Ersatz sonstiger Aufwendungen", {
   x: left,
@@ -626,7 +710,7 @@ page.drawImage(unterschriftImage, {
   height: 43,
 });
 
-page.drawText(organisation.inhaberName ?? "", {
+page.drawText("Alltagshelfer Bonn Rhein Sieg", {
   x: left,
   y: positionY - 140,
   size: 10,

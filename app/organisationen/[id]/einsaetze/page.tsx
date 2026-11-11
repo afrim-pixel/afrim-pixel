@@ -104,7 +104,9 @@ const vergangeneEinsaetze = einsaetze.filter(
     const endzeit = String(formData.get("endzeit") ?? "");
     const kilometer = String(formData.get("kilometer") ?? "");
     const anfahrtspauschale = formData.get("anfahrtspauschale") === "on";
-const leistungsart = String(formData.get("leistungsart") ?? "") as
+    const sonntagsFeiertagszuschlag =
+      formData.get("sonntagsFeiertagszuschlag") === "on";
+    const leistungsart = String(formData.get("leistungsart") ?? "") as
   | "ENTLASTUNGSBETRAG_45B"
   | "UMWANDLUNGSANSPRUCH_45A"
   | "PFLEGESACHLEISTUNG_36"
@@ -178,6 +180,7 @@ const leistungsart = String(formData.get("leistungsart") ?? "") as
           ? Number(kilometer.replace(",", "."))
           : null,
         anfahrtspauschale,
+        sonntagsFeiertagszuschlag,
         leistungsart,
         benutzerId,
         klientId,

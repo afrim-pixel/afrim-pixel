@@ -64,8 +64,16 @@ if (!actionKlient) {
   const telefon = (formData.get("telefon") as string) || null;
   const email = (formData.get("email") as string) || null;
   const pflegekasse = (formData.get("pflegekasse") as string) || null;
+  const pflegekasseStrasse =
+  (formData.get("pflegekasseStrasse") as string)?.trim() || null;
 const versichertennummer =
   (formData.get("versichertennummer") as string) || null;
+  const pflegekasseHausnummer =
+  (formData.get("pflegekasseHausnummer") as string)?.trim() || null;
+  const pflegekassePlz =
+  (formData.get("pflegekassePlz") as string)?.trim() || null;
+  const pflegekasseOrt =
+  (formData.get("pflegekasseOrt") as string)?.trim() || null;
 const kassenIk = (formData.get("kassenIk") as string) || null;
 const leistungsarten = formData.getAll("leistungsarten") as (
   | "ENTLASTUNGSBETRAG_45B"
@@ -99,6 +107,10 @@ const stundensatz =
       telefon,
       email,
       pflegekasse,
+      pflegekasseStrasse,
+      pflegekasseHausnummer,
+      pflegekassePlz,
+      pflegekasseOrt,
       versichertennummer,
       kassenIk,
       leistungsbeginn: leistungsbeginn
@@ -270,6 +282,54 @@ if (leistungsarten.length > 0) {
     name="pflegekasse"
     defaultValue={klient.pflegekasse ?? ""}
     placeholder="z. B. AOK Rheinland/Hamburg"
+    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+  />
+</div>
+
+<div>
+  <label className="mb-2 block text-sm font-medium text-slate-700">
+    Straße der Pflegekasse
+  </label>
+  <input
+    type="text"
+    name="pflegekasseStrasse"
+    defaultValue={klient.pflegekasseStrasse ?? ""}
+    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+  />
+</div>
+
+<div>
+  <label className="mb-2 block text-sm font-medium text-slate-700">
+    Hausnummer der Pflegekasse
+  </label>
+  <input
+    type="text"
+    name="pflegekasseHausnummer"
+    defaultValue={klient.pflegekasseHausnummer ?? ""}
+    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+  />
+</div>
+
+<div>
+  <label className="mb-2 block text-sm font-medium text-slate-700">
+    Postleitzahl der Pflegekasse
+  </label>
+  <input
+    type="text"
+    name="pflegekassePlz"
+    defaultValue={klient.pflegekassePlz ?? ""}
+    className="w-full rounded-lg border border-slate-300 px-3 py-2"
+  />
+</div>
+
+<div>
+  <label className="mb-2 block text-sm font-medium text-slate-700">
+    Ort der Pflegekasse
+  </label>
+  <input
+    type="text"
+    name="pflegekasseOrt"
+    defaultValue={klient.pflegekasseOrt ?? ""}
     className="w-full rounded-lg border border-slate-300 px-3 py-2"
   />
 </div>
