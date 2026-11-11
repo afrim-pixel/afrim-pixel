@@ -1,4 +1,6 @@
-import { prisma } from "../../../../lib/prisma";
+﻿import { prisma } from "../../../../lib/prisma";
+import { sessionErfordern } from "@/lib/auth";
+import { notFound } from "next/navigation";
 export default async function AbrechnungPage({
   params,
 }: {
@@ -6,6 +8,10 @@ export default async function AbrechnungPage({
 }) {
   const { id } = await params;
   const organisationId = Number(id);
+  const session = await sessionErfordern();
+  if (Number(session.organisationId) !== organisationId || session.rolle !== "ADMIN_INHABER") {
+    notFound();
+  }
 
 const klienten = await prisma.klient.findMany({
   where: {
